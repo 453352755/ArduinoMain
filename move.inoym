@@ -1,0 +1,223 @@
+#include <PID_v1.h>
+
+//Define Variables we'll be connecting to
+double SetpointL, InputL, OutputL, SetpointR, InputR, OutputR;
+
+//Specify the links and initial tuning parameters
+PID rightPID(&InputR, &OutputR, &SetpointR,0.1,0.35,0, DIRECT);
+PID leftPID(&InputL, &OutputL, &SetpointL,0.1,0.35,0, DIRECT);
+
+unsigned char _INA1 = 2;
+unsigned char _INB1 = 4;
+static const unsigned char _PWM1 = 9;
+unsigned char _EN1DIAG1 = 6; 
+unsigned char _INA2 = 7;
+unsigned char _INB2 = 8;
+static const unsigned char _PWM2 = 10;
+unsigned char _EN2DIAG2 = 12;
+
+//variable declarations
+double rightspeed;
+double leftspeed;
+int current1, current2;
+int last1 = LOW;
+int last2 = LOW;
+int righttick = 0; 
+int lefttick = 0;
+long count = 0;
+long count2 = 0;
+
+void forward1()
+{  
+  while(count2 < 6950)
+  {
+    count2++; 
+    moveForward(leftspeed,rightspeed);
+    tickCount();
+  
+    count++;
+    
+    if(count == 3000)
+    {
+      pid();
+    }
+  }
+  count2 = 0;
+  int count3 = 0;
+  while(count3 < 10000)
+  {
+    moveStop();
+    count3++;
+  }
+  rightspeed = 102.5;
+  leftspeed = 100;
+  righttick = 0;
+  lefttick = 0;
+  count = 0;
+  Serial.print("pscanner:");
+    getSensorReading();
+}
+
+void left1()
+{  
+  while(count2 < 10100)
+  {
+    count2++; 
+    rotateLeft(leftspeed,rightspeed);
+    tickCount();
+  
+    count++;
+    
+    if(count == 3000)
+    {
+      pid();
+    }
+  }
+  count2 = 0;
+  int count3 = 0;
+  while(count3 < 10000)
+  {
+    moveStop();
+    count3++;
+  }
+  rightspeed = 102.5;
+  leftspeed = 100;
+  righttick = 0;
+  lefttick = 0;
+  count = 0;
+  Serial.print("pscanner:");
+    getSensorReading();
+}
+
+void right1()
+{  
+  while(count2 < 10080)
+  {
+    count2++; 
+    rotateRight(leftspeed,rightspeed);
+    tickCount();
+  
+    count++;
+    
+    if(count == 3000)
+    {
+      pid();
+    }
+  }
+  count2 = 0;
+  int count3 = 0;
+  while(count3 < 10000)
+  {
+    moveStop();
+    count3++;
+  }
+  rightspeed = 102.5;
+  leftspeed = 100;
+  righttick = 0;
+  lefttick = 0;
+  count = 0;
+  Serial.print("pscanner:");
+    getSensorReading();
+}
+
+void rotateLeft(double leftspeed,double rightspeed)
+{
+      //motor left
+    analogWrite(_PWM2,leftspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA2,LOW);   // Make the motor coast no
+    digitalWrite(_INB2,HIGH);   // matter which direction it is spinning.
+    //motor right
+    analogWrite(_PWM1,rightspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA1,HIGH);   // Make the motor coast no
+    digitalWrite(_INB1,LOW);   // matter which direction it is spinning.
+}
+
+void rotateRight(double leftspeed,double rightspeed)
+{
+      //motor left
+    analogWrite(_PWM2,leftspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA2,HIGH);   // Make the motor coast no
+    digitalWrite(_INB2,LOW);   // matter which direction it is spinning.
+    //motor right
+    analogWrite(_PWM1,rightspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA1,LOW);   // Make the motor coast no
+    digitalWrite(_INB1,HIGH);   // matter which direction it is spinning.
+}
+
+//keep track of tick count whenever motor is running
+void tickCount()
+{
+  current1 = digitalRead(enRightPin);
+  if ((last1 == LOW) && (current1 == HIGH)) 
+  {
+      righttick++;
+  } 
+  last1 = current1;
+  
+  current2 = digitalRead(enLeftPin);
+  if ((last2 == LOW) && (current2 == HIGH)) 
+  {
+      lefttick++;
+  } 
+  last2 = current2;
+}
+void moveStop()
+{
+    //motor 1
+    analogWrite(_PWM1,0); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA1,LOW);   // Make the motor coast no
+    digitalWrite(_INB1,LOW);   // matter which direction it is spinning.
+    //motor 2
+    analogWrite(_PWM2,0); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA2,LOW);   // Make the motor coast no
+    digitalWrite(_INB2,LOW);   // matter which direction it is spinning.
+    Serial.print("pscanner:");
+    getSensorReading();
+}
+//pid function. input is tickcount, compute pid and make adjustment to speed
+void pid()
+{
+  InputR = righttick;
+  InputL = lefttick;
+
+  rightPID.Compute();
+  leftPID.Compute();
+
+  rightspeed = (OutputR * rightspeed)/InputR + rightspeed;
+  leftspeed = (OutputL * leftspeed)/InputL + leftspeed;
+
+  //testPrint();
+  count = 0;
+  righttick = 0;
+  lefttick = 0; 
+}
+
+void moveForward(double leftspeed, double rightspeed)
+{
+    //motor 1
+    analogWrite(_PWM1,rightspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA1,HIGH);   // Make the motor coast no
+    digitalWrite(_INB1,LOW);   // matter which direction it is spinning.
+    //motor 2
+    analogWrite(_PWM2,leftspeed); // default to using analogWrite, mapping 400 to 255
+    digitalWrite(_INA2,HIGH);   // Make the motor coast no
+    digitalWrite(_INB2,LOW);   // matter which direction it is spinning.
+}
+
+void testPrint()
+{
+    Serial.print("input: ");
+    Serial.print(InputR);
+    Serial.print(" : ");
+    Serial.println(InputL);
+    
+    Serial.print("output: ");
+    Serial.print(OutputR);
+    Serial.print(" : ");
+    Serial.println(OutputL);
+    
+    Serial.print("speed: ");
+    Serial.print(rightspeed);
+    Serial.print(" : ");
+    Serial.println(leftspeed);
+}
